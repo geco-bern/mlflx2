@@ -25,18 +25,15 @@ INPUT_FEATURES = 11
 HIDDEN_DIM = 256
 CONDITIONAL_FEATURES = 21
 
-# def compute_bias(model, x_test, y_test, conditional_test, device):
-#     i = 0
-#     bias = []
-#     for (x, y,conditional) in zip(x_test, y_test, conditional_test):
-#         x = torch.FloatTensor(x).to(device)
-#         y = torch.FloatTensor(y).to(device)
-#         c = torch.FloatTensor(conditional).to(device)
-#         y_pred = model(x, c)
-#         bias.append((y_pred - y).detach().cpu().numpy())
-#         i += 1
+def compute_bias(model, x_test, y_test, device):
+    bias = []
+    for (x, y) in zip(x_test, y_test):
+        x = torch.FloatTensor(x).to(device)
+        y = torch.FloatTensor(y).to(device)
+        y_pred = model(x, None)
+        bias.append((y_pred - y).detach().cpu().numpy())
     
-#     return np.concatenate(bias)
+    return np.concatenate(bias)
 
 if __name__ == '__main__':
     # Parse arguments 
@@ -45,14 +42,14 @@ if __name__ == '__main__':
     parser.add_argument('--device', default=None, type=str)
     parser.add_argument('--n_epochs', default=5, type=int, help='number of cv epochs', required=True)
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
-    parser.add_argument('--continent', type=str)
+    parser.add_argument('--group_name', type=str)
 
     args = parser.parse_args()
 
     TEST_IDX = None
-    if args.continent == "Europe":
+    if args.group_name == "Europe":
         TEST_IDX = EUROPE
-    elif args.continent == "US":
+    elif args.group_name == "US":
         TEST_IDX = US
     assert TEST_IDX is not None, "Please select a group."
     TRAIN_IDX = list(set(ALL_IDX) - set(TEST_IDX))
@@ -62,6 +59,7 @@ if __name__ == '__main__':
     data = pd.read_csv('../utils/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
     sites = data.index.unique().values
+    test_out_sites = sites[TEST_IDX]
 
     raw = pd.read_csv('../data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
     raw = raw[raw.index != 'CN-Cng']
@@ -74,7 +72,8 @@ if __name__ == '__main__':
         masks.append(list(map(operator.not_, mask)))
 
     cv_r2 = []
-    bias_continent = []
+    bias_in_all = []
+    bias_out_all = []
 
     for s in TRAIN_IDX:
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
@@ -82,6 +81,12 @@ if __name__ == '__main__':
         proc_train_sites = sites[PROC_TRAIN_IDX]
         proc_test_sites = sites[PROC_TEST_IDX]
 
+        # From the test set, split in in_data and out_data
+        test_in_sites = [sites[s]]
+        # test_out_sites = sites[TEST_IDX]
+        test_in_data = pd.concat([data[data.index == site] for site in test_in_sites if data[data.index == site].size != 0])
+        test_out_data = pd.concat([data[data.index == site] for site in test_out_sites if data[data.index == site].size != 0])
+        
         # Get the train/test data based on the processed sites
         train_data = pd.concat([data[data.index == site] for site in proc_train_sites if data[data.index == site].size != 0])
         test_data = pd.concat([data[data.index == site] for site in proc_test_sites if data[data.index == site].size != 0])
@@ -95,12 +100,23 @@ if __name__ == '__main__':
 
         x_test = [x.values for x in test_sensor]
         y_test = [x.values.reshape(-1,1) for x in test_gpp]
+
+
+        # Preprocess the in/out test sets
+        _, test_in_sensor, _, test_in_gpp = prepare_df(train_data, test_in_data)
+        _, test_out_sensor, _, test_out_gpp = prepare_df(train_data, test_out_data)
+        x_test_in = [x.values for x in test_in_sensor]
+        y_test_in = [x.values.reshape(-1,1) for x in test_in_gpp]
+        x_test_out = [x.values for x in test_out_sensor]
+        y_test_out = [x.values.reshape(-1,1) for x in test_out_gpp]
+
         # Init model
         model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, False, 1).to(DEVICE)
         optimizer = torch.optim.Adam(model.parameters())
 
         best_r2 = 0
-        bias = 0
+        bias_in = 0
+        bias_out = 0
         for epoch in tqdm(range(args.n_epochs)):
             
             train_loss = 0.0
@@ -137,5 +153,11 @@ if __name__ == '__main__':
 
                 if r2 >= best_r2:
                     best_r2 = r2
-                    bias = 
+                    bias_in = compute_bias(model, x_test_in, y_test_in, DEVICE)
+                    bias_out = compute_bias(model, x_test_out, y_test_out, DEVICE)
         
+        bias_in_all.append(bias_in)
+        bias_out_all.append(bias_out)
+    
+    np.save(f"in_bias_leave_{args.group_name}.npy", np.concatenate(bias_in_all).reshape(-1))
+    np.save(f"out_bias_leave_{args.group_name}.npy", np.concatenate(bias_out_all).reshape(-1))
