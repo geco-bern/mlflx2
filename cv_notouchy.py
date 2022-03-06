@@ -51,7 +51,6 @@ sites_out = []
 cv_pred = [[] for s in range(len(sites))]
 
 for s in range(len(sites)):
-    print(f"LSOCV: {s}/{len(sites)}")
     #remove the site for testing
     sites_to_train_list = list(range(len(sites)))
     sites_to_train_list.remove(s)
@@ -77,9 +76,9 @@ for s in range(len(sites)):
     conditional_train = [df_meta[i].values for i in range(len(sites)-1)]
     y_train = [df_gpp[i].values.reshape(-1,1) for i in range(len(sites)-1)]
 
-    x_test = df_sensor_test.values 
+    x_test = df_sensor_test[0].values 
     conditional_test = df_meta_test.values
-    y_test = df_gpp_test.values.reshape(-1,1)  
+    y_test = df_gpp_test[0].values.reshape(-1,1)  
     
     #import the model
     model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, args.conditional, 1).to(DEVICE)
@@ -105,19 +104,19 @@ for s in range(len(sites)):
         
         model.eval()
         with torch.no_grad():
-                x = torch.FloatTensor(x_test).to(DEVICE)
-                y = torch.FloatTensor(y_test).to(DEVICE)
-                c = torch.FloatTensor(conditional_test).to(DEVICE)
-                y_pred = model(x, c)
-                test_loss = F.mse_loss(y_pred, y)
-                test_r2 = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
-                r2.append(test_r2)
-                if test_r2 >= max(r2):
-                    cv_pred[s] = y_pred.detach().cpu().numpy().flatten().tolist()
+            x = torch.FloatTensor(x_test).to(DEVICE)
+            y = torch.FloatTensor(y_test).to(DEVICE)
+            c = torch.FloatTensor(conditional_test).to(DEVICE)
+            y_pred = model(x, c)
+            test_loss = F.mse_loss(y_pred, y)
+            test_r2 = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
+            r2.append(test_r2)
+            if test_r2 >= max(r2):
+                cv_pred[s] = y_pred.detach().cpu().numpy().flatten().tolist()
     
     cv_r2.append(max(r2))
-    sites_out.append(df_sensor_test.index[0])
-    print(f"Test Site: {df_sensor_test.index[0]} R2: {cv_r2[s]}")
+    sites_out.append(sites[s])
+    print(f"Test Site: {sites[s]} R2: {cv_r2[s]}")
     print("CV R2 cumulative mean: ", np.mean(cv_r2), " +- ", np.std(cv_r2))
     print("-------------------------------------------------------------------")
     
@@ -125,7 +124,7 @@ for s in range(len(sites)):
 #save the dataframe of the prediction   
 d = {"Site": sites_out, "Predictions": cv_pred}
 df = pd.DataFrame(d)
-df.to_csv(f"lstm_simple_predictions_notouchy_conditional_{args.conditional}.csv")
+df.to_csv(f"notouchy_epochs_{args.n_epochs}_conditional_{args.conditional}.csv")
 
 # normal={"mean":train_mean, "std":train_std}
 # out= pd.DataFrame(normal)
