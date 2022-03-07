@@ -24,10 +24,10 @@ ALL_IDX = list(range(0, 53))
 INPUT_FEATURES = 11
 HIDDEN_DIM = 256
 CONDITIONAL_FEATURES = 21
-# DBF
-# ENF
-# GRA
-# MF
+DBF = [17, 23, 26, 30, 34, 43, 44, 50, 51]
+ENF = [ 0, 13, 19, 22, 24, 25, 27, 31, 35, 36, 40, 41, 42, 45]
+GRA = [ 1,  5, 10, 12, 16, 20, 32, 37, 39, 47, 52]
+MF = [ 8,  9, 11, 38, 46]
 def compute_bias(model, x_test, y_test, device):
     bias = []
     for (x, y) in zip(x_test, y_test):
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         masks.append(list(map(operator.not_, mask)))
 
     cv_r2 = []
-    bias_leave_train_out_all = []
+    bias_test_all = []
     bias_DBF_all = []
     bias_ENF_all = []
     bias_GRA_all = []
@@ -92,14 +92,15 @@ if __name__ == '__main__':
 
     for s in TRAIN_IDX:
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
-        PROC_TEST_IDX = np.asarray(TEST_IDX + [s]) # and add it to the test set
+        PROC_TEST_IDX = np.asarray([s]) # and add it to the test set
+        # PROC_TEST_IDX = np.asarray(TEST_IDX + [s]) # and add it to the test set
         proc_train_sites = sites[PROC_TRAIN_IDX]
         proc_test_sites = sites[PROC_TEST_IDX]
 
         # Get the train/test data based on the processed sites
         train_data = pd.concat([data[data.index == site] for site in proc_train_sites if data[data.index == site].size != 0])
         test_data = pd.concat([data[data.index == site] for site in proc_test_sites if data[data.index == site].size != 0])
-        leave_train_out_data = pd.concat([data[data.index == site] for site in [s] if data[data.index == site].size != 0])
+        # leave_train_out_data = pd.concat([data[data.index == site] for site in [s] if data[data.index == site].size != 0])
 
         train_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_train_sites if meta_data[meta_data.index == site].size != 0])
         test_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_test_sites if meta_data[meta_data.index == site].size != 0])
@@ -116,7 +117,7 @@ if __name__ == '__main__':
         _, ENF_sensor, _, ENF_gpp = prepare_df(train_data, ENF_data)
         _, GRA_sensor, _, GRA_gpp = prepare_df(train_data, GRA_data)
         _, MF_sensor, _, MF_gpp = prepare_df(train_data, MF_data)
-        _, leave_train_out_sensor, _, leave_train_out_gpp = prepare_df(train_data, leave_train_out_data)
+        # _, leave_train_out_sensor, _, leave_train_out_gpp = prepare_df(train_data, leave_train_out_data)
 
         x_DBF = [x.values for x in DBF_sensor]
         y_DBF = [x.values.reshape(-1,1) for x in DBF_gpp]
@@ -130,15 +131,16 @@ if __name__ == '__main__':
         x_MF = [x.values for x in MF_sensor]
         y_MF = [x.values.reshape(-1,1) for x in MF_gpp]
 
-        x_leave_train_out = [x.values for x in leave_train_out_sensor]
-        y_leave_train_out = [x.values.reshape(-1,1) for x in leave_train_out_gpp]
+        # x_leave_train_out = [x.values for x in leave_train_out_sensor]
+        # y_leave_train_out = [x.values.reshape(-1,1) for x in leave_train_out_gpp]
 
         # Init model
         model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, False, 1).to(DEVICE)
         optimizer = torch.optim.Adam(model.parameters())
 
         best_r2 = 0
-        bias_leave_train_out = 0
+        # bias_leave_train_out = 0
+        bias_test = 0
         bias_DBF = 0
         bias_ENF = 0
         bias_GRA = 0
@@ -180,13 +182,13 @@ if __name__ == '__main__':
 
                 if r2 >= best_r2:
                     best_r2 = r2
-                    bias_leave_train_out = compute_bias(model, x_leave_train_out, y_leave_train_out, DEVICE)
+                    bias_test = compute_bias(model, x_test, y_test, DEVICE)
                     bias_DBF = compute_bias(model, x_DBF, y_DBF, DEVICE)
                     bias_ENF = compute_bias(model, x_ENF, y_ENF, DEVICE)
                     bias_GRA = compute_bias(model, x_GRA, y_GRA, DEVICE)
                     bias_MF = compute_bias(model, x_MF, y_MF, DEVICE)
         
-        bias_leave_train_out.append(bias_leave_train_out)
+        bias_test_all.append(bias_test)
         bias_DBF_all.append(bias_DBF)
         bias_ENF_all.append(bias_ENF)
         bias_GRA_all.append(bias_GRA)
@@ -196,4 +198,4 @@ if __name__ == '__main__':
     np.save(f"train_{args.group_name}_bias_ENF.npy", np.concatenate(bias_ENF_all).reshape(-1))
     np.save(f"train_{args.group_name}_bias_GRA.npy", np.concatenate(bias_GRA_all).reshape(-1))
     np.save(f"train_{args.group_name}_bias_MF.npy", np.concatenate(bias_MF_all).reshape(-1))
-    np.save(f"train_{args.group_name}_bias_leave_train_out.npy", np.concatenate(bias_leave_train_out).reshape(-1))
+    np.save(f"train_{args.group_name}_bias_test.npy", np.concatenate(bias_test_all).reshape(-1))

@@ -77,7 +77,8 @@ if __name__ == '__main__':
 
     for s in TRAIN_IDX:
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
-        PROC_TEST_IDX = np.asarray(TEST_IDX + [s]) # and add it to the test set
+        # PROC_TEST_IDX = np.asarray(TEST_IDX + [s]) # and add it to the test set
+        PROC_TEST_IDX = np.asarray([s]) # and add it to the test set
         proc_train_sites = sites[PROC_TRAIN_IDX]
         proc_test_sites = sites[PROC_TEST_IDX]
 
