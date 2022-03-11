@@ -42,8 +42,8 @@ if __name__ == '__main__':
     # Parse arguments 
     parser = argparse.ArgumentParser(description='CV LSTM')
 
-    parser.add_argument('--device', default=None, type=str)
-    parser.add_argument('--n_epochs', default=5, type=int, help='number of cv epochs', required=True)
+    parser.add_argument('--device', default='cuda:0', type=str)
+    parser.add_argument('--n_epochs', default=120, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
     parser.add_argument('--group_name', type=str)
 
@@ -59,14 +59,18 @@ if __name__ == '__main__':
     elif args.group_name == "MF":
         TRAIN_IDX = MF
     assert TRAIN_IDX is not None, "Please select a group."
+    print(args.group_name)
     TEST_IDX = list(set(ALL_IDX) - set(TRAIN_IDX))
     DEVICE = args.device
-    
+     
     #Importing data
     data = pd.read_csv('../utils/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
     sites = data.index.unique().values
-
+    DBF = sites[DBF]
+    ENF = sites[ENF]
+    GRA = sites[GRA]
+    MF = sites[MF]
     raw = pd.read_csv('../data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
     raw = raw[raw.index != 'CN-Cng']
 
@@ -93,14 +97,12 @@ if __name__ == '__main__':
     for s in TRAIN_IDX:
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
         PROC_TEST_IDX = np.asarray([s]) # and add it to the test set
-        # PROC_TEST_IDX = np.asarray(TEST_IDX + [s]) # and add it to the test set
         proc_train_sites = sites[PROC_TRAIN_IDX]
         proc_test_sites = sites[PROC_TEST_IDX]
 
         # Get the train/test data based on the processed sites
         train_data = pd.concat([data[data.index == site] for site in proc_train_sites if data[data.index == site].size != 0])
         test_data = pd.concat([data[data.index == site] for site in proc_test_sites if data[data.index == site].size != 0])
-        # leave_train_out_data = pd.concat([data[data.index == site] for site in [s] if data[data.index == site].size != 0])
 
         train_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_train_sites if meta_data[meta_data.index == site].size != 0])
         test_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_test_sites if meta_data[meta_data.index == site].size != 0])
@@ -117,7 +119,6 @@ if __name__ == '__main__':
         _, ENF_sensor, _, ENF_gpp = prepare_df(train_data, ENF_data)
         _, GRA_sensor, _, GRA_gpp = prepare_df(train_data, GRA_data)
         _, MF_sensor, _, MF_gpp = prepare_df(train_data, MF_data)
-        # _, leave_train_out_sensor, _, leave_train_out_gpp = prepare_df(train_data, leave_train_out_data)
 
         x_DBF = [x.values for x in DBF_sensor]
         y_DBF = [x.values.reshape(-1,1) for x in DBF_gpp]
@@ -131,15 +132,11 @@ if __name__ == '__main__':
         x_MF = [x.values for x in MF_sensor]
         y_MF = [x.values.reshape(-1,1) for x in MF_gpp]
 
-        # x_leave_train_out = [x.values for x in leave_train_out_sensor]
-        # y_leave_train_out = [x.values.reshape(-1,1) for x in leave_train_out_gpp]
-
         # Init model
         model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, False, 1).to(DEVICE)
-        optimizer = torch.optim.Adam(model.parameters())
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
         best_r2 = 0
-        # bias_leave_train_out = 0
         bias_test = 0
         bias_DBF = 0
         bias_ENF = 0
@@ -179,15 +176,14 @@ if __name__ == '__main__':
                     test_loss = F.mse_loss( y_pred, y)
                     r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
                 r2 /= len(test_dataset)
-
                 if r2 >= best_r2:
+                    print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2
                     bias_test = compute_bias(model, x_test, y_test, DEVICE)
                     bias_DBF = compute_bias(model, x_DBF, y_DBF, DEVICE)
                     bias_ENF = compute_bias(model, x_ENF, y_ENF, DEVICE)
                     bias_GRA = compute_bias(model, x_GRA, y_GRA, DEVICE)
                     bias_MF = compute_bias(model, x_MF, y_MF, DEVICE)
-        
         bias_test_all.append(bias_test)
         bias_DBF_all.append(bias_DBF)
         bias_ENF_all.append(bias_ENF)

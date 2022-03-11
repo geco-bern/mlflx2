@@ -18,9 +18,9 @@ INPUT_FEATURES = 11
 if __name__ == '__main__':
     # Parse arguments 
     parser = argparse.ArgumentParser(description='CV DNN') 
-    parser.add_argument('--device', default=None, type=str,
+    parser.add_argument('--device', default='cuda:0', type=str,
                           help='indices of GPU to enable ')
-    parser.add_argument('-e', '--n_epochs', default=None, type=int,
+    parser.add_argument('-e', '--n_epochs', default=150, type=int,
                           help='number of cv epochs ()')
 
 

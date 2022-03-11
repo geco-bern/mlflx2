@@ -39,8 +39,8 @@ if __name__ == '__main__':
     # Parse arguments 
     parser = argparse.ArgumentParser(description='CV LSTM')
 
-    parser.add_argument('--device', default=None, type=str)
-    parser.add_argument('--n_epochs', default=5, type=int, help='number of cv epochs', required=True)
+    parser.add_argument('--device', default='cuda:0', type=str)
+    parser.add_argument('--n_epochs', default=120, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
     parser.add_argument('--group_name', type=str)
 

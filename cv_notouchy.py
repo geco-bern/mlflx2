@@ -17,17 +17,17 @@ import operator
 # Parse arguments 
 parser = argparse.ArgumentParser(description='CV LSTM')
 
-parser.add_argument('-gpu', '--gpu', default=None, type=str,
+parser.add_argument('-gpu', '--gpu', default='cuda:0' ,type=str,
                       help='indices of GPU to enable ')
 
-parser.add_argument('-e', '--n_epochs', default=None, type=int,
+parser.add_argument('-e', '--n_epochs', default=150, type=int,
                       help='number of cv epochs ()')
 
 parser.add_argument('-c', '--conditional',  type=int,
                       help='enable conditioning')
 
 args = parser.parse_args()
-DEVICE = torch.device("cuda:" + args.gpu)
+DEVICE = args.gpu
 torch.manual_seed(40)
 
 #importing data
