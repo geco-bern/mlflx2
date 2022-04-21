@@ -1,8 +1,7 @@
 #This is the final LSTM model with leave-one-site-out cross-validation
-#standardising new
 
 from model.model import Model
-from preprocess_new import prepare_df
+from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
 import pandas as pd
@@ -31,9 +30,9 @@ DEVICE = args.gpu
 torch.manual_seed(40)
 
 #importing data
-data = pd.read_csv('./utils/df_imputed.csv', index_col=0)
+data = pd.read_csv('../data/df_imputed.csv', index_col=0)
 data = data.drop(columns='date')
-raw = pd.read_csv('./data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
+raw = pd.read_csv('../data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
 raw = raw[raw.index != 'CN-Cng']
 
 sites = raw.index.unique()

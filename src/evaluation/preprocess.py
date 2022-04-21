@@ -28,15 +28,8 @@ def prepare_df(data, data_test, meta_columns=['classid','igbp_land_use']):
     # Batch by site
     df_sensor = [df_sensor[df_sensor.index==site] for site in sites if sensor_data[sensor_data.index == site].size != 0 ]
     df_gpp = [df_gpp[df_gpp.index==site] for site in sites]
-
-    # Compute y train normalization values
-    means = [df_gpp[i].mean() for i in range(len(df_gpp))]
-    stds = [df_gpp[i].std() for i in range(len(df_gpp))]
-
+    
     df_sensor_test = [df_sensor_test[df_sensor_test.index==site] for site in sites_test if sensor_data_test[sensor_data_test.index == site].size != 0 ]
     df_gpp_test = [df_gpp_test[df_gpp_test.index==site] for site in sites_test]
 
-    # normalized gpp
-    normalized_df_gpp = [(df_gpp[i]-means[i])/stds[i] for i in range(len(df_gpp))]
-
-    return df_sensor, df_sensor_test, df_gpp, df_gpp_test, normalized_df_gpp, means, stds
+    return df_sensor, df_sensor_test, df_gpp, df_gpp_test

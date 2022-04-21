@@ -1,7 +1,7 @@
 #This is the Fully Connected Model with leave-one-site-out cross-validation
 
-from model.model_notime import Model
-from preprocess_new import prepare_df
+from model.fcn_model import Model
+from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
 import pandas as pd
@@ -9,7 +9,6 @@ import argparse
 import torch.nn.functional as F
 import numpy as np
 import operator
-# from plotly import graph_objects as go
 import pickle 
 
 torch.manual_seed(40)
@@ -28,9 +27,9 @@ if __name__ == '__main__':
     DEVICE = args.device
 
     #importing data
-    data = pd.read_csv('./utils/df_imputed.csv', index_col=0)
+    data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
-    raw = pd.read_csv('./data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
+    raw = pd.read_csv('../data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
     raw = raw[raw.index != 'CN-Cng']
     sites = raw.index.unique()
 

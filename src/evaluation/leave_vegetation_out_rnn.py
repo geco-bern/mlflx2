@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
-from model.model import Model
-from preprocess_new import prepare_df
+from model.rnn_model import Model
+from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
 import pandas as pd
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     DEVICE = args.device
      
     #Importing data
-    data = pd.read_csv('../utils/df_imputed.csv', index_col=0)
+    data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
     sites = data.index.unique().values
     DBF = sites[DBF]
@@ -148,8 +148,7 @@ if __name__ == '__main__':
             train_r2 = 0.0
             model.train()
             train_dataset = list(zip(x_train, y_train))
-            #train_dataset = list(zip(x_train, y_train))
-            #shuffle(train_dataset)
+            shuffle(train_dataset)
             preds = []
             gts = []
             for (x, y) in train_dataset:
