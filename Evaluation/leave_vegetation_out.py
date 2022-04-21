@@ -17,9 +17,6 @@ from random import shuffle
 
 torch.manual_seed(40)
 
-EUROPE = [8,9,10,11,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,
-35,36,37,39,40]
-US = [42,43,44,45,46,47,48,49,50,51,52]
 ALL_IDX = list(range(0, 53))
 INPUT_FEATURES = 11
 HIDDEN_DIM = 256
@@ -28,12 +25,13 @@ DBF = [17, 23, 26, 30, 34, 43, 44, 50, 51]
 ENF = [ 0, 13, 19, 22, 24, 25, 27, 31, 35, 36, 40, 41, 42, 45]
 GRA = [ 1,  5, 10, 12, 16, 20, 32, 37, 39, 47, 52]
 MF = [ 8,  9, 11, 38, 46]
+LAMBDA = 10
 def compute_bias(model, x_test, y_test, device):
     bias = []
     for (x, y) in zip(x_test, y_test):
         x = torch.FloatTensor(x).to(device)
         y = torch.FloatTensor(y).to(device)
-        y_pred = model(x, None)
+        y_pred = model(x, None) * LAMBDA
         bias.append((y_pred - y).detach().cpu().numpy())
     
     return np.concatenate(bias)
@@ -43,7 +41,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CV LSTM')
 
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--n_epochs', default=120, type=int, help='number of cv epochs')
+    parser.add_argument('--n_epochs', default=50, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
     parser.add_argument('--group_name', type=str)
 
@@ -59,7 +57,7 @@ if __name__ == '__main__':
     elif args.group_name == "MF":
         TRAIN_IDX = MF
     assert TRAIN_IDX is not None, "Please select a group."
-    print(args.group_name)
+    print(f"Training on: {args.group_name}")
     TEST_IDX = list(set(ALL_IDX) - set(TRAIN_IDX))
     DEVICE = args.device
      
@@ -95,6 +93,7 @@ if __name__ == '__main__':
     MF_data = pd.concat([data[data.index == site] for site in MF if data[data.index == site].size != 0])
 
     for s in TRAIN_IDX:
+        #PROC_TRAIN_IDX = np.asarray([s]) # remove one site from the train set
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
         PROC_TEST_IDX = np.asarray([s]) # and add it to the test set
         proc_train_sites = sites[PROC_TRAIN_IDX]
@@ -107,18 +106,19 @@ if __name__ == '__main__':
         train_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_train_sites if meta_data[meta_data.index == site].size != 0])
         test_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_test_sites if meta_data[meta_data.index == site].size != 0])
 
-        train_sensor, test_sensor, train_gpp, test_gpp = prepare_df(train_data, test_data)
+        train_sensor, test_sensor, train_gpp, test_gpp, normalized_train_gpp, means, stds = prepare_df(train_data, test_data)
         x_train = [x.values for x in train_sensor]
         y_train = [x.values.reshape(-1,1) for x in train_gpp]
+        normalized_y_train = [x.values.reshape(-1,1) for x in normalized_train_gpp]
 
         x_test = [x.values for x in test_sensor]
         y_test = [x.values.reshape(-1,1) for x in test_gpp]
 
         # Preprocess the in/out test sets
-        _, DBF_sensor, _, DBF_gpp = prepare_df(train_data, DBF_data)
-        _, ENF_sensor, _, ENF_gpp = prepare_df(train_data, ENF_data)
-        _, GRA_sensor, _, GRA_gpp = prepare_df(train_data, GRA_data)
-        _, MF_sensor, _, MF_gpp = prepare_df(train_data, MF_data)
+        _, DBF_sensor, _, DBF_gpp, _, _, _ = prepare_df(train_data, DBF_data)
+        _, ENF_sensor, _, ENF_gpp, _, _, _ = prepare_df(train_data, ENF_data)
+        _, GRA_sensor, _, GRA_gpp, _, _, _ = prepare_df(train_data, GRA_data)
+        _, MF_sensor, _, MF_gpp, _, _, _ = prepare_df(train_data, MF_data)
 
         x_DBF = [x.values for x in DBF_sensor]
         y_DBF = [x.values.reshape(-1,1) for x in DBF_gpp]
@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
         # Init model
         model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, False, 1).to(DEVICE)
-        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-5)
 
         best_r2 = 0
         bias_test = 0
@@ -144,17 +144,17 @@ if __name__ == '__main__':
         bias_MF = 0
 
         for epoch in tqdm(range(args.n_epochs)):
-            
             train_loss = 0.0
             train_r2 = 0.0
-
             model.train()
             train_dataset = list(zip(x_train, y_train))
-            shuffle(train_dataset)
-            print("> Training")
+            #train_dataset = list(zip(x_train, y_train))
+            #shuffle(train_dataset)
+            preds = []
+            gts = []
             for (x, y) in train_dataset:
                 x = torch.FloatTensor(x).to(DEVICE)
-                y = torch.FloatTensor(y).to(DEVICE)
+                y = torch.FloatTensor(y).to(DEVICE) / LAMBDA
                 c = None
                 y_pred = model(x, None)
                 optimizer.zero_grad()
@@ -162,20 +162,22 @@ if __name__ == '__main__':
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
-            
+                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy() * LAMBDA)
+            print(f"Train loss: {train_loss}")
             model.eval()
             with torch.no_grad():
                 r2 = 0
                 test_dataset = list(zip(x_test, y_test))
-                print("> Test")
                 for (x, y) in test_dataset:
                     x = torch.FloatTensor(x).to(DEVICE)
                     y = torch.FloatTensor(y).to(DEVICE)
-                    y_pred = model(x, None)
-                    test_loss = F.mse_loss( y_pred, y)
-                    r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
+                    y_pred = model(x, None) * LAMBDA
+                    test_loss = F.mse_loss(y_pred, y)
+                    score = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
+                    print(f"Loss: {test_loss}")
+                    r2 += score
                 r2 /= len(test_dataset)
+                print(f'R2 at epoch {epoch}: {r2}')
                 if r2 >= best_r2:
                     print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2
