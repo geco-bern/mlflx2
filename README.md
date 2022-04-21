@@ -32,4 +32,4 @@ In the `evaluation/random_forest` directory, there is a notebook that trains a R
 The experiments that test leave-vegetation-out and leave-continent-out can be run in a similar fashion. To see the list of arguments (names of vegetations/continejts) look inside the files.
 
 ### Disclaimer
-While the models have been extensively tested, bugs might still creep in. For any reports, send an [email to one of the authors](mailto:ameterez@student.ethz.ch).
+While the models have been extensively tested, we are merely humans. For any bug reports, send an [email to one of the authors](mailto:ameterez@student.ethz.ch).
