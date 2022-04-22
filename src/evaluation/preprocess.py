@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 def normalize(df,df_test):
-    #Normalising the dataframe by features
+    # Normalising the dataframe by features
     result = df.copy()
     result_test=df_test.copy()
     for feature_name in df.columns:
@@ -12,8 +12,7 @@ def normalize(df,df_test):
     return result,result_test
 
 def prepare_df(data, data_test, meta_columns=['classid','igbp_land_use']):
-    #Group the data by sites and seprerate time dependented non-time dependented and the target variable
-    # Site Data
+    # Group the data by sites and seprerate time dependented non-time dependented and the target variable
     sites = data.index.unique()
     sensor_data = data.drop(columns=['plant_functional_type', 'classid', 'koeppen_code','igbp_land_use', 'GPP_NT_VUT_REF'])
     df_gpp = data['GPP_NT_VUT_REF']
@@ -22,7 +21,7 @@ def prepare_df(data, data_test, meta_columns=['classid','igbp_land_use']):
     sensor_data_test = data_test.drop(columns=['plant_functional_type', 'classid', 'koeppen_code','igbp_land_use', 'GPP_NT_VUT_REF'])
     df_gpp_test = data_test['GPP_NT_VUT_REF']
     
-    #Standardising
+    # Standardising
     df_sensor, df_sensor_test = normalize(sensor_data, sensor_data_test)
     
     # Batch by site

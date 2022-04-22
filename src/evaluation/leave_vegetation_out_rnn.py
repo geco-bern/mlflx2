@@ -1,7 +1,7 @@
 import sys
 sys.path.append("..")
-from model.model import Model
-from preprocess_new import prepare_df
+from model.rnn_model import Model
+from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
 import pandas as pd
@@ -17,9 +17,6 @@ from random import shuffle
 
 torch.manual_seed(40)
 
-EUROPE = [8,9,10,11,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,
-35,36,37,39,40]
-US = [42,43,44,45,46,47,48,49,50,51,52]
 ALL_IDX = list(range(0, 53))
 INPUT_FEATURES = 11
 HIDDEN_DIM = 256
@@ -28,12 +25,13 @@ DBF = [17, 23, 26, 30, 34, 43, 44, 50, 51]
 ENF = [ 0, 13, 19, 22, 24, 25, 27, 31, 35, 36, 40, 41, 42, 45]
 GRA = [ 1,  5, 10, 12, 16, 20, 32, 37, 39, 47, 52]
 MF = [ 8,  9, 11, 38, 46]
+LAMBDA = 10
 def compute_bias(model, x_test, y_test, device):
     bias = []
     for (x, y) in zip(x_test, y_test):
         x = torch.FloatTensor(x).to(device)
         y = torch.FloatTensor(y).to(device)
-        y_pred = model(x, None)
+        y_pred = model(x, None) * LAMBDA
         bias.append((y_pred - y).detach().cpu().numpy())
     
     return np.concatenate(bias)
@@ -43,7 +41,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CV LSTM')
 
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--n_epochs', default=120, type=int, help='number of cv epochs')
+    parser.add_argument('--n_epochs', default=50, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
     parser.add_argument('--group_name', type=str)
 
@@ -59,12 +57,19 @@ if __name__ == '__main__':
     elif args.group_name == "MF":
         TRAIN_IDX = MF
     assert TRAIN_IDX is not None, "Please select a group."
-    print(args.group_name)
+
+    # Debug printing
+    print("Starting leave-vegetation-out on RNN model:")
+    print(f"> Device: {args.device}")
+    print(f"> Epochs: {args.n_epochs}")
+    print(f"> Condition on metadata: {args.conditional}")
+    print(f"> Vegetation to train on (tested on the rest): {args.group_name}")
+    
     TEST_IDX = list(set(ALL_IDX) - set(TRAIN_IDX))
     DEVICE = args.device
      
     #Importing data
-    data = pd.read_csv('../utils/df_imputed.csv', index_col=0)
+    data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
     sites = data.index.unique().values
     DBF = sites[DBF]
@@ -134,7 +139,7 @@ if __name__ == '__main__':
 
         # Init model
         model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, False, 1).to(DEVICE)
-        optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-5)
 
         best_r2 = 0
         bias_test = 0
@@ -144,17 +149,16 @@ if __name__ == '__main__':
         bias_MF = 0
 
         for epoch in tqdm(range(args.n_epochs)):
-            
             train_loss = 0.0
             train_r2 = 0.0
-
             model.train()
             train_dataset = list(zip(x_train, y_train))
             shuffle(train_dataset)
-            print("> Training")
+            preds = []
+            gts = []
             for (x, y) in train_dataset:
                 x = torch.FloatTensor(x).to(DEVICE)
-                y = torch.FloatTensor(y).to(DEVICE)
+                y = torch.FloatTensor(y).to(DEVICE) / LAMBDA
                 c = None
                 y_pred = model(x, None)
                 optimizer.zero_grad()
@@ -162,20 +166,22 @@ if __name__ == '__main__':
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
-            
+                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy() * LAMBDA)
+            print(f"Train loss: {train_loss}")
             model.eval()
             with torch.no_grad():
                 r2 = 0
                 test_dataset = list(zip(x_test, y_test))
-                print("> Test")
                 for (x, y) in test_dataset:
                     x = torch.FloatTensor(x).to(DEVICE)
                     y = torch.FloatTensor(y).to(DEVICE)
-                    y_pred = model(x, None)
-                    test_loss = F.mse_loss( y_pred, y)
-                    r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
+                    y_pred = model(x, None) * LAMBDA
+                    test_loss = F.mse_loss(y_pred, y)
+                    score = r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
+                    print(f"Loss: {test_loss}")
+                    r2 += score
                 r2 /= len(test_dataset)
+                print(f'R2 at epoch {epoch}: {r2}')
                 if r2 >= best_r2:
                     print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2

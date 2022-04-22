@@ -1,7 +1,6 @@
 import sys
-sys.path.append("..")
-from model.model import Model
-from preprocess_new import prepare_df
+from model.rnn_model import Model
+from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
 import pandas as pd
@@ -55,8 +54,15 @@ if __name__ == '__main__':
     TRAIN_IDX = list(set(ALL_IDX) - set(TEST_IDX))
     DEVICE = args.device
     
+    # Debug printing
+    print("Starting leave-continent-out on RNN model:")
+    print(f"> Device: {args.device}")
+    print(f"> Epochs: {args.n_epochs}")
+    print(f"> Condition on metadata: {args.conditional}")
+    print(f"> Continent to test on (trained on the other): {args.group_name}")
+
     #Importing data
-    data = pd.read_csv('../utils/df_imputed.csv', index_col=0)
+    data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
     sites = data.index.unique().values
     test_out_sites = sites[TEST_IDX]
