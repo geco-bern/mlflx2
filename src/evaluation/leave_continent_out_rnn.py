@@ -54,6 +54,13 @@ if __name__ == '__main__':
     TRAIN_IDX = list(set(ALL_IDX) - set(TEST_IDX))
     DEVICE = args.device
     
+    # Debug printing
+    print("Starting leave-continent-out on RNN model:")
+    print(f"> Device: {args.device}")
+    print(f"> Epochs: {args.n_epochs}")
+    print(f"> Condition on metadata: {args.conditional}")
+    print(f"> Continent to test on (trained on the other): {args.group_name}")
+
     #Importing data
     data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')

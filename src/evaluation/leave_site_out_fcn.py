@@ -26,6 +26,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     DEVICE = args.device
 
+    print("Starting leave-site-out on FCN model:")
+    print(f"> Device: {args.device}")
+    print(f"> Epochs: {args.n_epochs}")
+
     #importing data
     data = pd.read_csv('../data/df_imputed.csv', index_col=0)
     data = data.drop(columns='date')
@@ -88,7 +92,7 @@ if __name__ == '__main__':
                 y = torch.FloatTensor(y_test).to(DEVICE)
                 y_pred = model(x)
                 test_loss = F.mse_loss( y_pred, y)
-                test_r2 = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
+                test_r2 = r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
                 r2.append(test_r2)
                 pred.append(y_pred)
         

@@ -57,7 +57,14 @@ if __name__ == '__main__':
     elif args.group_name == "MF":
         TRAIN_IDX = MF
     assert TRAIN_IDX is not None, "Please select a group."
-    print(f"Training on: {args.group_name}")
+
+    # Debug printing
+    print("Starting leave-vegetation-out on RNN model:")
+    print(f"> Device: {args.device}")
+    print(f"> Epochs: {args.n_epochs}")
+    print(f"> Condition on metadata: {args.conditional}")
+    print(f"> Vegetation to train on (tested on the rest): {args.group_name}")
+    
     TEST_IDX = list(set(ALL_IDX) - set(TRAIN_IDX))
     DEVICE = args.device
      
@@ -93,7 +100,6 @@ if __name__ == '__main__':
     MF_data = pd.concat([data[data.index == site] for site in MF if data[data.index == site].size != 0])
 
     for s in TRAIN_IDX:
-        #PROC_TRAIN_IDX = np.asarray([s]) # remove one site from the train set
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
         PROC_TEST_IDX = np.asarray([s]) # and add it to the test set
         proc_train_sites = sites[PROC_TRAIN_IDX]
@@ -106,19 +112,18 @@ if __name__ == '__main__':
         train_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_train_sites if meta_data[meta_data.index == site].size != 0])
         test_metadata = pd.concat([meta_data[meta_data.index == site] for site in proc_test_sites if meta_data[meta_data.index == site].size != 0])
 
-        train_sensor, test_sensor, train_gpp, test_gpp, normalized_train_gpp, means, stds = prepare_df(train_data, test_data)
+        train_sensor, test_sensor, train_gpp, test_gpp = prepare_df(train_data, test_data)
         x_train = [x.values for x in train_sensor]
         y_train = [x.values.reshape(-1,1) for x in train_gpp]
-        normalized_y_train = [x.values.reshape(-1,1) for x in normalized_train_gpp]
 
         x_test = [x.values for x in test_sensor]
         y_test = [x.values.reshape(-1,1) for x in test_gpp]
 
         # Preprocess the in/out test sets
-        _, DBF_sensor, _, DBF_gpp, _, _, _ = prepare_df(train_data, DBF_data)
-        _, ENF_sensor, _, ENF_gpp, _, _, _ = prepare_df(train_data, ENF_data)
-        _, GRA_sensor, _, GRA_gpp, _, _, _ = prepare_df(train_data, GRA_data)
-        _, MF_sensor, _, MF_gpp, _, _, _ = prepare_df(train_data, MF_data)
+        _, DBF_sensor, _, DBF_gpp = prepare_df(train_data, DBF_data)
+        _, ENF_sensor, _, ENF_gpp = prepare_df(train_data, ENF_data)
+        _, GRA_sensor, _, GRA_gpp = prepare_df(train_data, GRA_data)
+        _, MF_sensor, _, MF_gpp = prepare_df(train_data, MF_data)
 
         x_DBF = [x.values for x in DBF_sensor]
         y_DBF = [x.values.reshape(-1,1) for x in DBF_gpp]
@@ -172,7 +177,7 @@ if __name__ == '__main__':
                     y = torch.FloatTensor(y).to(DEVICE)
                     y_pred = model(x, None) * LAMBDA
                     test_loss = F.mse_loss(y_pred, y)
-                    score = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
+                    score = r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
                     print(f"Loss: {test_loss}")
                     r2 += score
                 r2 /= len(test_dataset)

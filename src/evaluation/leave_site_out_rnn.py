@@ -1,6 +1,6 @@
 #This is the final LSTM model with leave-one-site-out cross-validation
 
-from model.model import Model
+from model.rnn_model import Model
 from preprocess import prepare_df
 from sklearn.metrics import r2_score
 import torch
@@ -16,20 +16,25 @@ import operator
 # Parse arguments 
 parser = argparse.ArgumentParser(description='CV LSTM')
 
-parser.add_argument('-gpu', '--gpu', default='cuda:0' ,type=str,
+parser.add_argument('-device', '--device', default='cuda:0' ,type=str,
                       help='indices of GPU to enable ')
 
 parser.add_argument('-e', '--n_epochs', default=150, type=int,
                       help='number of cv epochs ()')
 
-parser.add_argument('-c', '--conditional',  type=int,
+parser.add_argument('-c', '--conditional',  default=0, type=int,
                       help='enable conditioning')
 
 args = parser.parse_args()
-DEVICE = args.gpu
+DEVICE = args.device
 torch.manual_seed(40)
 
-#importing data
+print("Starting leave-site-out on RNN model:")
+print(f"> Device: {args.device}")
+print(f"> Epochs: {args.n_epochs}")
+print(f"> Condition on metadata: {args.conditional}")
+
+# Importing data
 data = pd.read_csv('../data/df_imputed.csv', index_col=0)
 data = data.drop(columns='date')
 raw = pd.read_csv('../data/df_20210510.csv', index_col=0)['GPP_NT_VUT_REF']
@@ -50,27 +55,27 @@ sites_out = []
 cv_pred = [[] for s in range(len(sites))]
 
 for s in range(len(sites)):
-    #remove the site for testing
+    # remove the site for testing
     sites_to_train_list = list(range(len(sites)))
     sites_to_train_list.remove(s)
     sites_to_train=sites[sites_to_train_list]
     site_to_test=sites[s]
     
-    #Prepare the metadata
+    # Prepare the metadata
     meta_data = pd.get_dummies(data[['classid','igbp_land_use']])
     df_meta_all = [meta_data[meta_data.index==site] for site in sites if meta_data[meta_data.index == site].size != 0]
     df_meta_test=df_meta_all[s]
     df_meta_all.pop(s)
     df_meta=df_meta_all
     
-    #Prepare and standardise the sensor data
+    # Prepare and standardise the sensor data
     df_train=[data[data.index ==site] for site in sites_to_train]
     df_train=pd.concat(df_train)
     df_test=data[data.index ==site_to_test]
     
     df_sensor, df_sensor_test, df_gpp, df_gpp_test=prepare_df(df_train,df_test)
 
-    #Prepare dataframe for training
+    # Prepare dataframe for training
     x_train = [df_sensor[i].values for i in range(len(sites)-1)]
     conditional_train = [df_meta[i].values for i in range(len(sites)-1)]
     y_train = [df_gpp[i].values.reshape(-1,1) for i in range(len(sites)-1)]
@@ -79,7 +84,7 @@ for s in range(len(sites)):
     conditional_test = df_meta_test.values
     y_test = df_gpp_test[0].values.reshape(-1,1)  
     
-    #import the model
+    # import the model
     model = Model(INPUT_FEATURES, CONDITIONAL_FEATURES, HIDDEN_DIM, args.conditional, 1).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -108,7 +113,7 @@ for s in range(len(sites)):
             c = torch.FloatTensor(conditional_test).to(DEVICE)
             y_pred = model(x, c)
             test_loss = F.mse_loss(y_pred, y)
-            test_r2 = r2_score(y_true=y.detach().cpu().numpy()[masks[s]], y_pred=y_pred.detach().cpu().numpy()[masks[s]])
+            test_r2 = r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
             r2.append(test_r2)
             if test_r2 >= max(r2):
                 cv_pred[s] = y_pred.detach().cpu().numpy().flatten().tolist()

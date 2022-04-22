@@ -29,7 +29,13 @@ python evaluation/leave_site_out_fcn.py
 In the `evaluation/random_forest` directory, there is a notebook that trains a Random Forest model, also used as a baseline.
 
 ###### Other experiments
-The experiments that test leave-vegetation-out and leave-continent-out can be run in a similar fashion. To see the list of arguments (names of vegetations/continejts) look inside the files.
+The experiments that test leave-vegetation-out and leave-continent-out can be run in a similar fashion. To see the list of arguments (names of vegetations/continents) look inside the files.
+
+###### Run on Euler cluster
+To run on the Euler cluster, execute:
+```
+bsub -R rusage[mem=10000,ngpus_excl_p=1] python SCRIPT_NAME_HERE.py
+```
 
 ### Disclaimer
 While the models have been extensively tested, we are merely humans. For any bug reports, send an [email to one of the authors](mailto:ameterez@student.ethz.ch).
