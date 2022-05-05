@@ -14,6 +14,8 @@ import pickle
 from tqdm import tqdm
 from copy import deepcopy
 from random import shuffle
+import os
+import csv
 
 torch.manual_seed(40)
 
@@ -22,26 +24,25 @@ INPUT_FEATURES = 11
 HIDDEN_DIM = 256
 CONDITIONAL_FEATURES = 21
 DBF = [17, 23, 26, 30, 34, 43, 44, 50, 51]
-ENF = [ 0, 13, 19, 22, 24, 25, 27, 31, 35, 36, 40, 41, 42, 45]
-GRA = [ 1,  5, 10, 12, 16, 20, 32, 37, 39, 47, 52]
-MF = [ 8,  9, 11, 38, 46]
-LAMBDA = 10
+ENF = [0, 13, 19, 22, 24, 25, 27, 31, 35, 36, 40, 41, 42, 45]
+GRA = [1, 5, 10, 12, 16, 20, 32, 37, 39, 47, 52]
+MF = [8, 9, 11, 38, 46]
 def compute_bias(model, x_test, y_test, device):
     bias = []
     for (x, y) in zip(x_test, y_test):
         x = torch.FloatTensor(x).to(device)
         y = torch.FloatTensor(y).to(device)
-        y_pred = model(x, None) * LAMBDA
-        bias.append((y_pred - y).detach().cpu().numpy())
+        y_pred = model(x, None)
+        bias.append((y_pred - y).detach().cpu().numpy().squeeze().tolist())
     
-    return np.concatenate(bias)
+    return bias
 
 if __name__ == '__main__':
     # Parse arguments 
     parser = argparse.ArgumentParser(description='CV LSTM')
 
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--n_epochs', default=50, type=int, help='number of cv epochs')
+    parser.add_argument('--n_epochs', default=1, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
     parser.add_argument('--group_name', type=str)
 
@@ -70,6 +71,7 @@ if __name__ == '__main__':
      
     #Importing data
     data = pd.read_csv('../data/df_imputed.csv', index_col=0)
+    dates = data.groupby('sitename')['date'].apply(list)
     data = data.drop(columns='date')
     sites = data.index.unique().values
     DBF = sites[DBF]
@@ -98,6 +100,10 @@ if __name__ == '__main__':
     ENF_data = pd.concat([data[data.index == site] for site in ENF if data[data.index == site].size != 0])
     GRA_data = pd.concat([data[data.index == site] for site in GRA if data[data.index == site].size != 0])
     MF_data = pd.concat([data[data.index == site] for site in MF if data[data.index == site].size != 0])
+    
+    output_dir = f"leave_{args.group_name}_out"
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
     for s in TRAIN_IDX:
         PROC_TRAIN_IDX = np.asarray(list(set(TRAIN_IDX) - set([s]))) # remove one site from the train set
@@ -158,7 +164,7 @@ if __name__ == '__main__':
             gts = []
             for (x, y) in train_dataset:
                 x = torch.FloatTensor(x).to(DEVICE)
-                y = torch.FloatTensor(y).to(DEVICE) / LAMBDA
+                y = torch.FloatTensor(y).to(DEVICE)
                 c = None
                 y_pred = model(x, None)
                 optimizer.zero_grad()
@@ -166,7 +172,7 @@ if __name__ == '__main__':
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
-                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy() * LAMBDA)
+                train_r2 += r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
             print(f"Train loss: {train_loss}")
             model.eval()
             with torch.no_grad():
@@ -175,14 +181,14 @@ if __name__ == '__main__':
                 for (x, y) in test_dataset:
                     x = torch.FloatTensor(x).to(DEVICE)
                     y = torch.FloatTensor(y).to(DEVICE)
-                    y_pred = model(x, None) * LAMBDA
+                    y_pred = model(x, None)
                     test_loss = F.mse_loss(y_pred, y)
                     score = r2_score(y_true=y.detach().cpu().numpy(), y_pred=y_pred.detach().cpu().numpy())
                     print(f"Loss: {test_loss}")
                     r2 += score
                 r2 /= len(test_dataset)
-                print(f'R2 at epoch {epoch}: {r2}')
-                if r2 >= best_r2:
+                # if r2 >= best_r2:
+                if True:
                     print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2
                     bias_test = compute_bias(model, x_test, y_test, DEVICE)
@@ -190,14 +196,53 @@ if __name__ == '__main__':
                     bias_ENF = compute_bias(model, x_ENF, y_ENF, DEVICE)
                     bias_GRA = compute_bias(model, x_GRA, y_GRA, DEVICE)
                     bias_MF = compute_bias(model, x_MF, y_MF, DEVICE)
-        bias_test_all.append(bias_test)
-        bias_DBF_all.append(bias_DBF)
-        bias_ENF_all.append(bias_ENF)
-        bias_GRA_all.append(bias_GRA)
-        bias_MF_all.append(bias_MF)
-    
-    np.save(f"train_{args.group_name}_bias_DBF.npy", np.concatenate(bias_DBF_all).reshape(-1))
-    np.save(f"train_{args.group_name}_bias_ENF.npy", np.concatenate(bias_ENF_all).reshape(-1))
-    np.save(f"train_{args.group_name}_bias_GRA.npy", np.concatenate(bias_GRA_all).reshape(-1))
-    np.save(f"train_{args.group_name}_bias_MF.npy", np.concatenate(bias_MF_all).reshape(-1))
-    np.save(f"train_{args.group_name}_bias_test.npy", np.concatenate(bias_test_all).reshape(-1))
+
+        bias_DBF_dict = []
+        for i, site in enumerate(DBF):
+            assert len(dates[site]) == len(bias_DBF[i]), print(len(dates[site]), len(bias_DBF[i]))
+            sitename_col = [site for _ in range(len(dates[site]))]
+            bias_DBF_dict += list(zip(sitename_col, dates[site], bias_DBF[i]))
+
+        bias_ENF_dict = []
+        for i, site in enumerate(ENF):
+            assert len(dates[site]) == len(bias_ENF[i]), print(len(dates[site]), len(bias_ENF[i]))
+            sitename_col = [site for _ in range(len(dates[site]))]
+            bias_ENF_dict += list(zip(sitename_col, dates[site], bias_ENF[i]))
+
+        bias_GRA_dict = []
+        for i, site in enumerate(GRA):
+            assert len(dates[site]) == len(bias_GRA[i]), print(len(dates[site]), len(bias_GRA[i]))
+            sitename_col = [site for _ in range(len(dates[site]))]
+            bias_GRA_dict += list(zip(sitename_col, dates[site], bias_GRA[i]))
+
+        bias_MF_dict = []
+        for i, site in enumerate(MF):
+            assert len(dates[site]) == len(bias_MF[i]), print(len(dates[site]), len(bias_MF[i]))
+            sitename_col = [site for _ in range(len(dates[site]))]
+            bias_MF_dict += list(zip(sitename_col, dates[site], bias_MF[i]))
+
+        bias_test_dict = []
+        for i, site in enumerate(proc_test_sites):
+            assert len(dates[site]) == len(bias_test[i]), print(len(dates[site]), len(bias_test[i]))
+            sitename_col = [site for _ in range(len(dates[site]))]
+            bias_test_dict += list(zip(sitename_col, dates[site], bias_test[i]))
+
+        with open(f"{output_dir}/{sites[s]}_DBF_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(bias_DBF_dict)
+
+        with open(f"{output_dir}/{sites[s]}_ENF_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(bias_ENF_dict)
+
+        with open(f"{output_dir}/{sites[s]}_GRA_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(bias_GRA_dict)
+
+        with open(f"{output_dir}/{sites[s]}_MF_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(bias_MF_dict)
+
+        with open(f"{output_dir}/{sites[s]}_test_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
+            writer.writerows(bias_test_dict)

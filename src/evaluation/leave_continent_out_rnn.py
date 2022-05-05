@@ -38,7 +38,6 @@ def compute_bias(model, x_test, y_test, device):
 if __name__ == '__main__':
     # Parse arguments 
     parser = argparse.ArgumentParser(description='CV LSTM')
-
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--n_epochs', default=1, type=int, help='number of cv epochs')
     parser.add_argument('--conditional',  type=int, default=0, help='enable conditioning')
@@ -155,6 +154,7 @@ if __name__ == '__main__':
                 r2 /= len(test_dataset)
 
                 if r2 >= best_r2:
+                    print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2
                     bias_in = compute_bias(model, x_test_in, y_test_in, DEVICE) # list of lists 
                     bias_out = compute_bias(model, x_test_out, y_test_out, DEVICE) # list of lists
@@ -173,9 +173,9 @@ if __name__ == '__main__':
             bias_out_dict += list(zip(sitename_col, dates[site], bias_out[i]))
 
 
-        with open(f"{output_dir}/{sites[s]}_in_bias.csv", "w", delimiter='\t') as f:
-            writer = csv.writer(f)
+        with open(f"{output_dir}/{sites[s]}_in_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
             writer.writerows(bias_in_dict)
-        with open(f"{output_dir}/{sites[s]}_out_bias.csv", "w", delimiter='\t') as f:
-            writer = csv.writer(f)
+        with open(f"{output_dir}/{sites[s]}_out_bias.csv", "w") as f:
+            writer = csv.writer(f, delimiter='\t')
             writer.writerows(bias_out_dict)
