@@ -187,8 +187,7 @@ if __name__ == '__main__':
                     print(f"Loss: {test_loss}")
                     r2 += score
                 r2 /= len(test_dataset)
-                # if r2 >= best_r2:
-                if True:
+                if r2 >= best_r2:
                     print(f'Found better at epoch {epoch}: {r2}')
                     best_r2 = r2
                     bias_test = compute_bias(model, x_test, y_test, DEVICE)
