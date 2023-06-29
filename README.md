@@ -18,6 +18,9 @@ We have 2 input files:
 
 These are the commands needed to train each of the models.
 
+#### Leave-site-out
+We save one CSV file, where each row contains a site and the model prediction when that site is left out of training.
+
 ###### LSTM Model
 This model takes as input a sequence (the input data) and predicts another sequence, representing the GPP across the length of time.
 
@@ -40,6 +43,8 @@ Run `python src/evaluation/leave_vegetation_out_rnn.py`, which will output a dir
 
 ###### Leave-continent-out
 Run `python src/evaluation/leave_continent_out_rnn.py`, which will output a directory named `leave_{group_name}_out` (where `group_name` corresponds to the continent name that the model will be tested on). In this directory, we save for both the in-distribution continent and out-of-distribution continent, one CSV file per each in-distribution site (which is left out of training).
+
+
 
 ###### Run on cluster
 To run on the cluster, execute:
