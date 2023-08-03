@@ -1,6 +1,29 @@
 # An effective machine learning approach for predicting ecosystem CO2 assimilation across space and time
 
-This repository contains the code for the experiments presented in the paper authored by Piersilvio De Bartolomeis, Alexandru Meterez, Zixin Shu, Fanny Yang and Benjamin D. Stocker, affiliated with ETH Zurich. 
+Piersilvio De Bartolomeis, Alexandru Meterez, Zixin Shu, Fanny Yang and Benjamin D. Stocker
+
+## Abstract
+
+Accurate predictions of environmental controls on ecosystem photosyn-
+thesis are essential for understanding impacts of climate change and extreme events
+on the carbon cycle and the provisioning of ecosystem services. Using time-series mea-
+surements of ecosystem fluxes paired with measurements of meteorological variables
+from a network of globally distributed sites and remotely sensed vegetation indices, we
+train a recurrent deep neural network (Long-Short-Term Memory, LSTM), a simple
+deep neural network (DNN), and a mechanistic, theory-based photosynthesis model
+with the aim to predict ecosystem gross primary production (GPP). We test the mod-
+els’ ability to spatially and temporally generalise across a wide range of environmental
+conditions. Both neural network models outperform the theory-based model consider-
+ing a leave-site-out cross-validation (LSOCV). The LSTM performs best and achieved
+a mean R2of 0.78 across sites in the LSOCV and an average R2of 0.82 across rel-
+atively moist temperate and boreal sites. This suggests that recurrent deep neural
+networks provide a basis for a robust data-driven ecosystem photosynthesis modelling
+in respective biomes. However, limits to global model upscaling are identified using
+a cross-validation by vegetation types and by continents and we identified weakest
+model performances at relatively arid sites where unknown vegetation exposure to
+water limitation limits model reliability.
+
+## Use
 
 The repo contains code to run experiments on 2 models:
 
@@ -43,8 +66,6 @@ Run `python src/evaluation/leave_vegetation_out_rnn.py`, which will output a dir
 
 ###### Leave-continent-out
 Run `python src/evaluation/leave_continent_out_rnn.py`, which will output a directory named `leave_{group_name}_out` (where `group_name` corresponds to the continent name that the model will be tested on). In this directory, we save for both the in-distribution continent and out-of-distribution continent, one CSV file per each in-distribution site (which is left out of training).
-
-
 
 ###### Run on cluster
 To run on the cluster, execute:
