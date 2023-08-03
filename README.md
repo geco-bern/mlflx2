@@ -4,24 +4,7 @@ Piersilvio De Bartolomeis, Alexandru Meterez, Zixin Shu, Fanny Yang and Benjamin
 
 ## Abstract
 
-Accurate predictions of environmental controls on ecosystem photosyn-
-thesis are essential for understanding impacts of climate change and extreme events
-on the carbon cycle and the provisioning of ecosystem services. Using time-series mea-
-surements of ecosystem fluxes paired with measurements of meteorological variables
-from a network of globally distributed sites and remotely sensed vegetation indices, we
-train a recurrent deep neural network (Long-Short-Term Memory, LSTM), a simple
-deep neural network (DNN), and a mechanistic, theory-based photosynthesis model
-with the aim to predict ecosystem gross primary production (GPP). We test the mod-
-els’ ability to spatially and temporally generalise across a wide range of environmental
-conditions. Both neural network models outperform the theory-based model consider-
-ing a leave-site-out cross-validation (LSOCV). The LSTM performs best and achieved
-a mean R2of 0.78 across sites in the LSOCV and an average R2of 0.82 across rel-
-atively moist temperate and boreal sites. This suggests that recurrent deep neural
-networks provide a basis for a robust data-driven ecosystem photosynthesis modelling
-in respective biomes. However, limits to global model upscaling are identified using
-a cross-validation by vegetation types and by continents and we identified weakest
-model performances at relatively arid sites where unknown vegetation exposure to
-water limitation limits model reliability.
+Accurate predictions of environmental controls on ecosystem photosyn thesis are essential for understanding impacts of climate change and extreme events on the carbon cycle and the provisioning of ecosystem services. Using time-series measurements of ecosystem fluxes paired with measurements of meteorological variables from a network of globally distributed sites and remotely sensed vegetation indices, we train a recurrent deep neural network (Long-Short-Term Memory, LSTM), a simple deep neural network (DNN), and a mechanistic, theory-based photosynthesis model with the aim to predict ecosystem gross primary production (GPP). We test the models’ ability to spatially and temporally generalise across a wide range of environmental conditions. Both neural network models outperform the theory-based model considering a leave-site-out cross-validation (LSOCV). The LSTM performs best and achieved a mean R2 of 0.78 across sites in the LSOCV and an average R2 of 0.82 across relatively moist temperate and boreal sites. This suggests that recurrent deep neural networks provide a basis for a robust data-driven ecosystem photosynthesis modelling in respective biomes. However, limits to global model upscaling are identified using a cross-validation by vegetation types and by continents and we identified weakest model performances at relatively arid sites where unknown vegetation exposure to water limitation limits model reliability.
 
 ## Use
 
@@ -35,7 +18,6 @@ We have 2 input files:
 
 - `data/df_20210510.csv`: contains the raw data, without any imputation, and is used to compute the results excluding the imputed values
 - `data/df_imputed.csv`: contains the imputed data, used to train the model
-
 
 ### Commands
 
